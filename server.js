@@ -420,6 +420,7 @@ app.get('/api/teachers/available', Auth.authenticateToken, async (req, res) => {
              WHERE date = $1 AND classes = $2`,
             [date, parseInt(classes)]
         );
+
         
         const busyTeacherNames = busyTeachers.rows.map(row => row.teacher);
         console.log('🚫 Занятые преподаватели:', busyTeacherNames);
@@ -553,6 +554,20 @@ app.get('/api/teachers/available', Auth.authenticateToken, async (req, res) => {
     }
 });
 
+
+// Получение списка всех предметов
+app.get('/api/subjects', Auth.authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT DISTINCT subject FROM timetable ORDER BY subject`
+        );
+        const subjects = result.rows.map(row => row.subject);
+        res.json({ success: true, subjects });
+    } catch (error) {
+        console.error('❌ Ошибка при получении предметов:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 // ================================================
 // ЗАЯВКИ НА ЗАМЕНУ (Мои заявки / Новая заявка)
 // ================================================
