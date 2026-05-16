@@ -75,6 +75,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ================================================
 
 // Проверка здоровья сервера
+
+app.get('/api/test', (req, res) => {
+    res.json({ message: 'Test route works!' });
+});
+
 app.get('/api/health', async (req, res) => {
     try {
         const dbStatus = await testConnection();
