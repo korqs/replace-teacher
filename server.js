@@ -67,10 +67,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-app.use((req, res, next) => {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    next();
-});
 // Статические файлы
 app.use(express.static(path.join(__dirname, 'public')));
 
