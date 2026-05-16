@@ -102,34 +102,41 @@ class NewRequestModule {
     }
 
     async loadSubjects() {
-        try {
-            const data = await this.dashboard.apiRequest('/subjects');
-            if (data && data.success && data.subjects) {
-                const subjectSelect = document.getElementById('subject');
-                if (subjectSelect) {
-                    subjectSelect.innerHTML = '<option value="">Выберите предмет</option>';
-                    data.subjects.forEach(subject => {
-                        const option = document.createElement('option');
-                        option.value = subject;
-                        option.textContent = subject;
-                        subjectSelect.appendChild(option);
-                    });
-                    console.log(`✅ Загружено предметов: ${data.subjects.length}`);
-                }
-            } else {
-                console.warn('⚠️ Не удалось загрузить предметы');
-                const subjectSelect = document.getElementById('subject');
-                if (subjectSelect) {
-                    subjectSelect.innerHTML = '<option value="">Ошибка загрузки предметов</option>';
-                }
-            }
-        } catch (error) {
-            console.error('❌ Ошибка загрузки предметов:', error);
+        const date = document.getElementById('requestDate')?.value;
+        const classes = document.getElementById('classes')?.value;
+    
+        if (!date || !classes) {
             const subjectSelect = document.getElementById('subject');
             if (subjectSelect) {
-                subjectSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+                subjectSelect.innerHTML = '<option value="">Сначала выберите дату и пару</option>';
             }
+            return;
         }
+    
+        try {
+            const data = await this.dashboard.apiRequest(`/subjects/by-lesson?date=${date}&classes=${classes}`);
+            if (data && data.success) {
+                const subjectSelect = document.getElementById('subject');
+                if (data.subjects.length === 0) {
+                    subjectSelect.innerHTML = '<option value="">Нет занятий в это время</option>';
+                } else {
+                    subjectSelect.innerHTML = '<option value="">Выберите предмет</option>';
+                    data.subjects.forEach(subject => {
+                    const option = document.createElement('option');
+                    option.value = subject;
+                    option.textContent = subject;
+                    subjectSelect.appendChild(option);
+                    });
+                }
+                console.log(`✅ Загружено предметов: ${data.subjects.length}`);
+            }
+            } catch (error) {
+                console.error('❌ Ошибка загрузки предметов:', error);
+                const subjectSelect = document.getElementById('subject');
+                if (subjectSelect) {
+                    subjectSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+                }
+            }    
     }
 
     async loadAvailableTeachers(date, classes, subject) {
