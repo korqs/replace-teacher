@@ -68,7 +68,13 @@ app.use(cors({
 app.use(express.json());
 
 // Статические файлы
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html') || filePath.endsWith('.css') || filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', `${res.getHeader('Content-Type')}; charset=utf-8`);
+        }
+    }
+}));
 
 // ================================================
 // API МАРШРУТЫ
