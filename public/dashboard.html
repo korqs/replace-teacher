@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* Стили для dashboard */
+        /* Стили для dashboard (оставляем все ваши стили без изменений) */
         .dashboard-wrapper {
             min-height: 100vh;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -816,16 +816,15 @@
                 </div>
             </section>
 
-            <!-- Секция новой заявки -->
+            <!-- Секция новой заявки (исправленная) -->
             <section id="new-request-section" class="content-section teacher-only" style="display: none;">
                 <div class="section-header">
                     <h3><i class="fas fa-plus-circle"></i> Новая заявка</h3>
                 </div>
                 <div class="form-container" id="newRequestFormContainer">
-                    <div class="empty-state">
-                        <i class="fas fa-tools"></i>
-                        <p>Модуль находится в разработке</p>
-                        <p>Скоро здесь появится форма для создания заявок</p>
+                    <div class="loading-schedule">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Загрузка формы...</p>
                     </div>
                 </div>
             </section>
@@ -903,7 +902,7 @@
             console.log('📄 Dashboard.html загружен');
             
             // Проверяем, что все необходимые файлы загружены
-            const requiredFiles = ['dashboard.js', 'schedule.js'];
+            const requiredFiles = ['dashboard.js', 'schedule.js', 'new-request.js'];
             requiredFiles.forEach(file => {
                 console.log(`${file}: ${typeof window[file.split('.')[0]] !== 'undefined' ? '✅ Загружен' : '❌ Не загружен'}`);
             });
