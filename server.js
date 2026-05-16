@@ -947,6 +947,28 @@ app.post('/api/requests', Auth.authenticateToken, async (req, res) => {
                 message: 'Обязательные поля: request_date, classes, subject, team'
             });
         }
+
+        // ============================================
+        // ПРОВЕРКА: существует ли предмет в расписании
+        // ============================================
+        try {
+            const subjectCheck = await pool.query(
+                `SELECT 1 FROM timetable WHERE subject = $1 LIMIT 1`,
+                [subject]
+            );
+            if (subjectCheck.rows.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Предмет не найден в расписании. Выберите предмет из списка.'
+                });
+            }
+        } catch (err) {
+            console.error('❌ Ошибка проверки предмета:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Ошибка проверки предмета'
+            });
+        }
         
         // Проверяем, существует ли выбранный преподаватель (если указан)
         if (replacing_teacher) {
