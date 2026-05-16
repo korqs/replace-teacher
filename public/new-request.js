@@ -419,6 +419,15 @@ class NewRequestModule {
                 this.selectedTeacher = null;
             });
         });
+        const dateInput = document.getElementById('requestDate');
+        const classesInput = document.getElementById('classes');
+    
+        if (dateInput) {
+            dateInput.addEventListener('change', () => this.loadSubjects());
+        }
+        if (classesInput) {
+            classesInput.addEventListener('change', () => this.loadSubjects());
+        }
     }
 
     async searchTeachers() {
