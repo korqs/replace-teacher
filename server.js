@@ -568,6 +568,59 @@ app.get('/api/subjects', Auth.authenticateToken, async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 });
+
+app.get('/api/subjects', Auth.authenticateToken, async (req, res) => {
+    // ... старый код
+});
+
+// 👇👇👇 ВСТАВИТЬ СЮДА 👇👇👇
+app.get('/api/subjects/by-lesson', Auth.authenticateToken, async (req, res) => {
+    try {
+        const { date, classes } = req.query;
+        const teacherName = req.user.teacher_name;
+        
+        if (!teacherName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Пользователь не связан с преподавателем'
+            });
+        }
+        
+        if (!date || !classes) {
+            return res.status(400).json({
+                success: false,
+                message: 'Необходимы параметры: date, classes'
+            });
+        }
+        
+        const result = await pool.query(
+            `SELECT DISTINCT subject 
+             FROM timetable 
+             WHERE teacher = $1 AND date = $2 AND classes = $3
+             ORDER BY subject`,
+            [teacherName, date, parseInt(classes)]
+        );
+        
+        const subjects = result.rows.map(row => row.subject);
+        
+        res.json({
+            success: true,
+            subjects: subjects,
+            has_schedule: subjects.length > 0
+        });
+        
+    } catch (error) {
+        console.error('❌ Ошибка при получении предметов по уроку:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ================================================
+// ЗАЯВКИ НА ЗАМЕНУ (Мои заявки / Новая заявка)
+// ================================================
 // ================================================
 // ЗАЯВКИ НА ЗАМЕНУ (Мои заявки / Новая заявка)
 // ================================================
