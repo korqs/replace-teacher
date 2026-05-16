@@ -29,12 +29,9 @@ class NewRequestModule {
         if (stored) {
             try {
                 this.prefill = JSON.parse(stored);
-                
-                // ФИКСИРУЕМ ДАТУ - исправляем проблему с часовым поясом
                 if (this.prefill.date) {
                     this.prefill.date = this.fixDateForInput(this.prefill.date);
                 }
-                
             } catch (_) {
                 this.prefill = null;
             }
@@ -42,39 +39,45 @@ class NewRequestModule {
         }
 
         this.renderForm();
+        await this.loadSubjects();
+        
+        // Если есть prefill, подставляем значения
+        if (this.prefill) {
+            const subjectSelect = document.getElementById('subject');
+            if (subjectSelect && this.prefill.subject) {
+                subjectSelect.value = this.prefill.subject;
+            }
+            const dateInput = document.getElementById('requestDate');
+            if (dateInput && this.prefill.date) {
+                dateInput.value = this.prefill.date;
+            }
+            const classesInput = document.getElementById('classes');
+            if (classesInput && this.prefill.classes) {
+                classesInput.value = this.prefill.classes;
+            }
+            const teamInput = document.getElementById('requestTeam');
+            if (teamInput && this.prefill.team) {
+                teamInput.value = this.prefill.team;
+            }
+        }
     }
 
-    // Вспомогательная функция для исправления даты
     fixDateForInput(dateValue) {
         try {
             let date;
-            
-            // Если это строка в формате ISO (с T)
             if (typeof dateValue === 'string' && dateValue.includes('T')) {
                 date = new Date(dateValue);
-            }
-            // Если это строка без времени
-            else if (typeof dateValue === 'string') {
-                // Добавляем время чтобы избежать сдвига часового пояса
+            } else if (typeof dateValue === 'string') {
                 date = new Date(dateValue + 'T12:00:00');
-            }
-            // Если это объект Date
-            else if (dateValue instanceof Date) {
+            } else if (dateValue instanceof Date) {
                 date = dateValue;
-            }
-            // Если что-то еще
-            else {
-                console.warn('Неизвестный формат даты:', dateValue);
+            } else {
                 return dateValue;
             }
-            
-            // Преобразуем в строку в формате YYYY-MM-DD без учета часового пояса
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
-            
             return `${year}-${month}-${day}`;
-            
         } catch (error) {
             console.error('Ошибка при обработке даты:', error, dateValue);
             return dateValue;
@@ -82,30 +85,60 @@ class NewRequestModule {
     }
 
     prefillFromLesson(lesson) {
-        // Исправляем дату перед сохранением
         if (lesson.date) {
             lesson.date = this.fixDateForInput(lesson.date);
         }
-        
         this.prefill = lesson;
         this.renderForm();
-        // Прокрутка к форме
+        this.loadSubjects().then(() => {
+            if (lesson.subject) {
+                const subjectSelect = document.getElementById('subject');
+                if (subjectSelect) subjectSelect.value = lesson.subject;
+            }
+        });
         try {
             this.container?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (_) {}
     }
 
+    async loadSubjects() {
+        try {
+            const data = await this.dashboard.apiRequest('/subjects');
+            if (data && data.success && data.subjects) {
+                const subjectSelect = document.getElementById('subject');
+                if (subjectSelect) {
+                    subjectSelect.innerHTML = '<option value="">Выберите предмет</option>';
+                    data.subjects.forEach(subject => {
+                        const option = document.createElement('option');
+                        option.value = subject;
+                        option.textContent = subject;
+                        subjectSelect.appendChild(option);
+                    });
+                    console.log(`✅ Загружено предметов: ${data.subjects.length}`);
+                }
+            } else {
+                console.warn('⚠️ Не удалось загрузить предметы');
+                const subjectSelect = document.getElementById('subject');
+                if (subjectSelect) {
+                    subjectSelect.innerHTML = '<option value="">Ошибка загрузки предметов</option>';
+                }
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки предметов:', error);
+            const subjectSelect = document.getElementById('subject');
+            if (subjectSelect) {
+                subjectSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+            }
+        }
+    }
+
     async loadAvailableTeachers(date, classes, subject) {
         try {
             console.log('🔍 Поиск преподавателей:', { date, classes, subject });
-            
-            // Убедимся, что дата в правильном формате
             const formattedDate = this.fixDateForInput(date);
-            
             const data = await this.dashboard.apiRequest(
                 `/teachers/available?date=${encodeURIComponent(formattedDate)}&classes=${encodeURIComponent(classes)}&subject=${encodeURIComponent(subject)}`
             );
-            
             if (data && data.success) {
                 console.log('✅ Найдено преподавателей:', data.teachers.length);
                 this.availableTeachers = data.teachers;
@@ -124,11 +157,8 @@ class NewRequestModule {
         if (!this.container) return;
 
         const p = this.prefill || {};
-        
-        // Обрабатываем дату правильно
         const dateValue = p.date ? this.fixDateForInput(p.date) : '';
         const classesValue = p.classes || '';
-        const subjectValue = p.subject || '';
         const teamValue = p.team || '';
         const weekNumValue = p.week_num || '';
         const numDenValue = p.num_den || 'num';
@@ -183,9 +213,14 @@ class NewRequestModule {
                                 <i class="fas fa-book" style="margin-right:8px;color:#4f46e5;"></i>
                                 Предмет *
                             </label>
-                            <input type="text" name="subject" required value="${this.escapeAttr(subjectValue)}"
-                                   style="padding:12px;border-radius:8px;border:1px solid #d1d5db;font-size:14px;"
-                                   id="subject" class="form-input" placeholder="Например: Матан">
+                            <select id="subject" name="subject" required
+                                    style="padding:12px;border-radius:8px;border:1px solid #d1d5db;font-size:14px;background:white;"
+                                    class="form-input">
+                                <option value="">Загрузка предметов...</option>
+                            </select>
+                            <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+                                <i class="fas fa-info-circle"></i> Выберите предмет из списка
+                            </div>
                         </div>
 
                         <div style="display:flex;flex-direction:column;gap:8px;">
@@ -195,7 +230,7 @@ class NewRequestModule {
                             </label>
                             <input type="text" name="team" required value="${this.escapeAttr(teamValue)}"
                                    style="padding:12px;border-radius:8px;border:1px solid #d1d5db;font-size:14px;"
-                                   class="form-input" placeholder="Например: ФН11-33Б">
+                                   id="requestTeam" class="form-input" placeholder="Например: ФН11-33Б">
                         </div>
 
                         <div style="display:flex;flex-direction:column;gap:8px;">
@@ -273,13 +308,11 @@ class NewRequestModule {
                 .form-input {
                     transition: all 0.2s ease;
                 }
-                
                 .form-input:focus {
                     outline: none;
                     border-color: #4f46e5;
                     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
                 }
-                
                 .search-teachers-btn {
                     background: linear-gradient(135deg, #4f46e5, #7c3aed);
                     color: white;
@@ -292,22 +325,18 @@ class NewRequestModule {
                     transition: all 0.3s ease;
                     box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
                 }
-                
                 .search-teachers-btn:hover {
                     transform: translateY(-2px);
                     box-shadow: 0 6px 12px rgba(79, 70, 229, 0.3);
                 }
-                
                 .search-teachers-btn:active {
                     transform: translateY(0);
                 }
-                
                 .search-teachers-btn:disabled {
                     background: #94a3b8;
                     cursor: not-allowed;
                     transform: none;
                 }
-                
                 .submit-btn {
                     background: linear-gradient(135deg, #059669, #10b981);
                     color: white;
@@ -320,12 +349,10 @@ class NewRequestModule {
                     transition: all 0.3s ease;
                     box-shadow: 0 4px 6px rgba(5, 150, 105, 0.2);
                 }
-                
                 .submit-btn:hover {
                     transform: translateY(-2px);
                     box-shadow: 0 6px 12px rgba(5, 150, 105, 0.3);
                 }
-                
                 .clear-btn {
                     background: #f1f5f9;
                     color: #64748b;
@@ -337,11 +364,9 @@ class NewRequestModule {
                     cursor: pointer;
                     transition: all 0.2s ease;
                 }
-                
                 .clear-btn:hover {
                     background: #e2e8f0;
                 }
-                
                 .teacher-card {
                     padding: 16px;
                     border-radius: 10px;
@@ -350,12 +375,10 @@ class NewRequestModule {
                     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
                     transition: all 0.2s ease;
                 }
-                
                 .teacher-card:hover {
                     transform: translateY(-2px);
                     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
                 }
-                
                 .coefficient-badge {
                     padding: 4px 10px;
                     border-radius: 20px;
@@ -363,7 +386,6 @@ class NewRequestModule {
                     font-weight: 600;
                     margin-right: 8px;
                 }
-                
                 .available-badge {
                     padding: 4px 10px;
                     border-radius: 20px;
@@ -373,17 +395,14 @@ class NewRequestModule {
             </style>
         `;
 
-        // Подсказка
         const hint = document.getElementById('newRequestHint');
         if (hint && this.prefill) {
             hint.innerHTML = `<i class="fas fa-magic" style="margin-right:6px;"></i> Данные подставлены из расписания`;
         }
 
-        // Добавляем обработчики для полей формы
         const inputs = this.container.querySelectorAll('.form-input');
         inputs.forEach(input => {
             input.addEventListener('input', () => {
-                // Скрываем список преподавателей если изменились данные
                 const container = document.getElementById('teachersListContainer');
                 if (container) container.style.display = 'none';
                 const selectedContainer = document.getElementById('selectedTeacherContainer');
@@ -398,18 +417,17 @@ class NewRequestModule {
     async searchTeachers() {
         const dateInput = document.getElementById('requestDate');
         const classesInput = document.getElementById('classes');
-        const subjectInput = document.getElementById('subject');
+        const subjectSelect = document.getElementById('subject');
 
         const date = dateInput.value;
         const classes = classesInput.value;
-        const subject = subjectInput.value.trim();
+        const subject = subjectSelect.value;
 
         if (!date || !classes || !subject) {
             this.dashboard.showError('Заполните обязательные поля: дата, пара, предмет');
             return;
         }
 
-        // Проверяем, что дата не в прошлом
         const selectedDate = new Date(date);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -420,7 +438,6 @@ class NewRequestModule {
             }
         }
 
-        // Показываем загрузку
         const container = document.getElementById('teachersListContainer');
         const list = document.getElementById('teachersList');
         const countSpan = document.getElementById('teachersCount');
@@ -435,7 +452,6 @@ class NewRequestModule {
             </div>
         `;
 
-        // Используем исправленную дату
         const fixedDate = this.fixDateForInput(date);
         const teachers = await this.loadAvailableTeachers(fixedDate, classes, subject);
         this.availableTeachers = teachers;
@@ -463,7 +479,6 @@ class NewRequestModule {
             return;
         }
 
-        // Сортируем по коэффициенту (по убыванию)
         teachers.sort((a, b) => b.coefficient - a.coefficient);
 
         if (countSpan) countSpan.textContent = `(${teachers.length} найдено, отсортированы по коэффициенту)`;
@@ -472,9 +487,6 @@ class NewRequestModule {
             const isTop3 = index < 3;
             const borderColor = isTop3 ? 
                 ['#f59e0b', '#10b981', '#3b82f6'][index] : '#d1d5db';
-            
-            const coefficientColor = teacher.coefficient > 0.7 ? '#10b981' : 
-                                   teacher.coefficient > 0.4 ? '#f59e0b' : '#ef4444';
             
             const availabilityColor = teacher.is_available ? '#10b981' : '#f59e0b';
             const availabilityText = teacher.is_available ? 'Свободен' : 'Занят в это время';
@@ -538,7 +550,6 @@ class NewRequestModule {
         return '#991b1b';
     }
 
-    // Вспомогательная функция для форматирования даты
     formatDateForDisplay(dateString) {
         try {
             const date = new Date(dateString);
@@ -555,7 +566,6 @@ class NewRequestModule {
     selectTeacher(teacherName) {
         this.selectedTeacher = teacherName;
         
-        // Показываем подтверждение выбора
         const container = document.getElementById('teachersListContainer');
         const selectedContainer = document.getElementById('selectedTeacherContainer');
         const selectedName = document.getElementById('selectedTeacherName');
@@ -565,8 +575,6 @@ class NewRequestModule {
             selectedName.textContent = teacherName;
             selectedContainer.style.display = 'block';
             submitBtn.style.display = 'flex';
-            
-            // Прокручиваем к выбранному преподавателю
             selectedContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         
@@ -591,7 +599,6 @@ class NewRequestModule {
         const form = document.getElementById('newRequestForm');
         const fd = new FormData(form);
 
-        // ФИКСИРУЕМ ДАТУ перед отправкой
         let requestDate = fd.get('request_date');
         requestDate = this.fixDateForInput(requestDate);
 
@@ -609,7 +616,6 @@ class NewRequestModule {
         if (weekNum) payload.week_num = Number(weekNum);
         if (numDen) payload.num_den = String(numDen);
 
-        // Показываем загрузку
         const submitBtn = document.getElementById('submitBtn');
         if (submitBtn) {
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
@@ -621,7 +627,6 @@ class NewRequestModule {
             body: JSON.stringify(payload)
         });
 
-        // Восстанавливаем кнопку
         if (submitBtn) {
             submitBtn.innerHTML = '<i class="fas fa-paper-plane" style="margin-right:8px;"></i> Отправить заявку';
             submitBtn.disabled = false;
@@ -629,9 +634,7 @@ class NewRequestModule {
 
         if (data && data.success) {
             this.dashboard.showSuccess('Заявка успешно отправлена!');
-            // Очищаем форму
             this.clearForm();
-            // Переходим в "Мои заявки"
             setTimeout(() => {
                 this.dashboard.showSection('requests');
             }, 1500);
@@ -645,11 +648,9 @@ class NewRequestModule {
         this.selectedTeacher = null;
         this.availableTeachers = [];
         
-        // Сбрасываем все поля формы
         const form = document.getElementById('newRequestForm');
         if (form) form.reset();
         
-        // Скрываем все дополнительные блоки
         const container = document.getElementById('teachersListContainer');
         const selectedContainer = document.getElementById('selectedTeacherContainer');
         const submitBtn = document.getElementById('submitBtn');
@@ -659,6 +660,9 @@ class NewRequestModule {
         if (submitBtn) submitBtn.style.display = 'none';
         
         this.dashboard.showSuccess('Форма очищена');
+        
+        // Перезагружаем предметы в селект
+        this.loadSubjects();
     }
 
     escapeAttr(value) {
