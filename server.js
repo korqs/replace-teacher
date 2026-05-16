@@ -67,6 +67,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Принудительная кодировка для всех файлов
+app.use((req, res, next) => {
+    if (req.url.includes('.html') || req.url.includes('.css') || req.url.includes('.js')) {
+        res.setHeader('Content-Type', `${res.getHeader('Content-Type') || 'text/html'}; charset=utf-8`);
+    }
+    next();
+});
+
 // Статические файлы
 app.use(express.static(path.join(__dirname, 'public')));
 
