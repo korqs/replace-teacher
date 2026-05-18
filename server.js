@@ -5,13 +5,48 @@ require('dotenv').config();
 
 const { pool, testConnection } = require('./init_db');
 const Auth = require('./auth');
-const { isEmailEnabled } = require('./services/mail');
+
+// Временные заглушки для email-функций (пока нет файлов)
+// Когда зальете mail.js и request-emails.js в корень проекта - раскомментируйте строки ниже
+// и закомментируйте эти заглушки
+
+// ЗАГЛУШКИ (работают без папки services)
+function isEmailEnabled() {
+    return process.env.EMAIL_ENABLED === 'true' && process.env.SMTP_HOST;
+}
+
+async function notifyInBackground(callback) {
+    // Асинхронно выполняем без ожидания
+    setImmediate(() => {
+        callback().catch(err => console.error('❌ Ошибка в email уведомлении:', err.message));
+    });
+}
+
+async function notifyNewReplacementRequest(pool, request) {
+    console.log(`📧 [ЗАГЛУШКА] Уведомление о новой заявке ID:${request.id}`);
+    return true;
+}
+
+async function notifyRequestResponded(pool, request, action) {
+    console.log(`📧 [ЗАГЛУШКА] Уведомление об ответе на заявку ID:${request.id}, действие:${action}`);
+    return true;
+}
+
+async function notifyRequestCancelled(pool, request) {
+    console.log(`📧 [ЗАГЛУШКА] Уведомление об отмене заявки ID:${request.id}`);
+    return true;
+}
+
+// КОГДА ЗАЛЬЕТЕ ФАЙЛЫ В КОРЕНЬ - РАСКОММЕНТИРУЙТЕ ЭТОТ БЛОК И ЗАКОММЕНТИРУЙТЕ ЗАГЛУШКИ ВЫШЕ:
+/*
+const { isEmailEnabled } = require('./mail');
 const {
     notifyInBackground,
     notifyNewReplacementRequest,
     notifyRequestResponded,
     notifyRequestCancelled
-} = require('./services/request-emails');
+} = require('./request-emails');
+*/
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -684,11 +719,6 @@ app.get('/api/subjects', Auth.authenticateToken, async (req, res) => {
     }
 });
 
-app.get('/api/subjects', Auth.authenticateToken, async (req, res) => {
-    // ... старый код
-});
-
-// 👇👇👇 ВСТАВИТЬ СЮДА 👇👇👇
 app.get('/api/subjects/by-lesson', Auth.authenticateToken, async (req, res) => {
     try {
         const { date, classes } = req.query;
