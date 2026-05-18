@@ -1,5 +1,10 @@
 // public/dashboard.js
 // Проверка токена при загрузке dashboard
+// Проверка авторизации
+const token = localStorage.getItem('token');
+if (!token) {
+    window.location.href = '/';
+}
 const urlParams = new URLSearchParams(window.location.search);
 const token = urlParams.get('token') || localStorage.getItem('token');
 
