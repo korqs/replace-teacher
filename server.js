@@ -6,37 +6,6 @@ require('dotenv').config();
 const { pool, testConnection } = require('./init_db');
 const Auth = require('./auth');
 
-// Временные заглушки для email-функций (пока нет файлов)
-// Когда зальете mail.js и request-emails.js в корень проекта - раскомментируйте строки ниже
-// и закомментируйте эти заглушки
-
-// ЗАГЛУШКИ (работают без папки services)
-// function isEmailEnabled() {
-//     return process.env.EMAIL_ENABLED === 'true' && process.env.SMTP_HOST;
-// }
-
-// async function notifyInBackground(callback) {
-//     // Асинхронно выполняем без ожидания
-//     setImmediate(() => {
-//         callback().catch(err => console.error('❌ Ошибка в email уведомлении:', err.message));
-//     });
-// }
-
-// async function notifyNewReplacementRequest(pool, request) {
-//     console.log(`📧 [ЗАГЛУШКА] Уведомление о новой заявке ID:${request.id}`);
-//     return true;
-// }
-
-// async function notifyRequestResponded(pool, request, action) {
-//     console.log(`📧 [ЗАГЛУШКА] Уведомление об ответе на заявку ID:${request.id}, действие:${action}`);
-//     return true;
-// }
-
-// async function notifyRequestCancelled(pool, request) {
-//     console.log(`📧 [ЗАГЛУШКА] Уведомление об отмене заявки ID:${request.id}`);
-//     return true;
-// }
-
 const { isEmailEnabled } = require('./mail');
 const {
     notifyInBackground,
@@ -1245,17 +1214,19 @@ app.post('/api/requests', Auth.authenticateToken, async (req, res) => {
             replacing_teacher
         };
         
+         if (replacing_teacher) {
+            console.log('📧 ДОЛЖНО ОТПРАВИТЬСЯ ПИСЬМО ДЛЯ:', replacing_teacher);
+            notifyInBackground(() =>
+                notifyNewReplacementRequest(pool, createdRequest)
+            );
+        }
+        
         res.json({
             success: true,
             message: 'Заявка успешно создана',
             request_id: requestId
         });
 
-        if (replacing_teacher) {
-            notifyInBackground(() =>
-                notifyNewReplacementRequest(pool, createdRequest)
-            );
-        }
         
     } catch (error) {
         console.error('❌ Ошибка при создании заявки:', error);
@@ -1265,6 +1236,8 @@ app.post('/api/requests', Auth.authenticateToken, async (req, res) => {
         });
     }
 });
+
+
 
 // Отмена заявки
 app.put('/api/requests/:id/cancel', Auth.authenticateToken, async (req, res) => {
