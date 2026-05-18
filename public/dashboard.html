@@ -681,6 +681,13 @@
     </style>
 </head>
 <body>
+    <script>
+    // Проверка авторизации перед загрузкой страницы
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/';
+        }
+    </script>
     <div class="dashboard-wrapper">
         <!-- Шапка -->
         <header class="dashboard-header">
