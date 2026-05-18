@@ -79,24 +79,8 @@ app.use(express.json());
 // Статические файлы
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ================================================
-// Middleware для проверки авторизации HTML страниц
-// ================================================
-function requireAuthForPage(req, res, next) {
-    const token = req.headers.authorization?.split(' ')[1] || req.query.token;
-    
-    if (!token) {
-        return res.redirect('/');
-    }
-    
-    try {
-        const decoded = Auth.verifyToken(token);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        return res.redirect('/');
-    }
-}
+
+
 
 // ================================================
 // API МАРШРУТЫ
@@ -1514,8 +1498,7 @@ app.get('/', (req, res) => {
 });
 
 // Страница dashboard
-// Страница dashboard - ТОЛЬКО ДЛЯ АВТОРИЗОВАННЫХ
-app.get('/dashboard', requireAuthForPage, (req, res) => {
+app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
