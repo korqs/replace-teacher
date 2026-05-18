@@ -60,9 +60,7 @@ if (process.env.DATABASE_URL) {
 
 const pool = new Pool(buildPoolConfig());
 
-// ================================================
 // ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ПОДКЛЮЧЕНИЯ (нужна для server.js)
-// ================================================
 const testConnection = async () => {
     try {
         const client = await pool.connect();
@@ -118,9 +116,7 @@ const testConnection = async () => {
     }
 };
 
-// ================================================
 // ФУНКЦИЯ ДЛЯ ИНИЦИАЛИЗАЦИИ БАЗЫ ДАННЫХ
-// ================================================
 async function initDB() {
     let client;
     
@@ -161,7 +157,6 @@ async function initDB() {
         const sql = fs.readFileSync(sqlPath, 'utf8');
         console.log('✅ SQL файл успешно прочитан');
         
-        // Разбиваем SQL на отдельные команды
         const commands = sql.split(';').filter(cmd => cmd.trim().length > 0);
         
         console.log(`🔄 Начинаю выполнение ${commands.length} SQL команд...`);
@@ -184,7 +179,6 @@ async function initDB() {
             } catch (error) {
                 errorCount++;
                 
-                // Игнорируем ошибки "уже существует"
                 if (error.message.includes('already exists') || 
                     error.message.includes('существует')) {
                     // Не выводим эти ошибки в консоль
@@ -263,18 +257,14 @@ async function initDB() {
     }
 }
 
-// ================================================
 // ЭКСПОРТЫ ДЛЯ СЕРВЕРА
-// ================================================
 module.exports = {
     pool,
     testConnection,
     initDB  // Экспортируем функцию инициализации тоже
 };
 
-// ================================================
 // ЕСЛИ ФАЙЛ ЗАПУЩЕН НАПРЯМУЮ
-// ================================================
 if (require.main === module) {
     console.log('🚀 Запуск скрипта инициализации БД...');
     console.log('ℹ️  Этот скрипт создает таблицы и тестовые данные');
