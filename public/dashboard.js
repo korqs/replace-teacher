@@ -12,8 +12,7 @@ class DashboardApp {
         
         // Проверка авторизации
         if (!this.token || !this.user) {
-            console.log('🔒 Нет авторизации, перенаправляем...');
-            setTimeout(() => window.location.href = '/', 500);
+            window.location.href = '/';
             return;
         }
 
