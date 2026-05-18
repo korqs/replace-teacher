@@ -11,8 +11,8 @@ CREATE TABLE api.users (email TEXT PRIMARY KEY, password_hash TEXT NOT NULL, rol
 CREATE TABLE teacher_competencies (id SERIAL PRIMARY KEY, teacher_name TEXT REFERENCES teachers(name) ON DELETE CASCADE, subject TEXT NOT NULL, lesson_type TEXT NOT NULL CHECK (lesson_type IN ('lecture', 'seminar')), coefficient DECIMAL(3,2) NOT NULL CHECK (coefficient >= 0 AND coefficient <= 1));
 
 -- Преподаватели
-INSERT INTO teachers (name, email, phone) VALUES ('Милехина', 'milekhina@university.ru', '+7 (999) 222-22-22');
-INSERT INTO teachers (name, email, phone) VALUES ('Захарова', 'zaxarova@university.ru', '+7 (999) 333-33-33');
+INSERT INTO teachers (name, email, phone) VALUES ('Милехина', 'arina.zaytseva.99@inbox.ru', '+7 (999) 222-22-22');
+INSERT INTO teachers (name, email, phone) VALUES ('Захарова', 'li3abelina@yandex.ru', '+7 (999) 333-33-33');
 INSERT INTO teachers (name, email, phone) VALUES ('Зубарев', 'zubarev@university.ru', '+7 (999) 444-44-44');
 INSERT INTO teachers (name, email, phone) VALUES ('Облакова', 'oblakova@university.ru', '+7 (999) 555-55-55');
 INSERT INTO teachers (name, email, phone) VALUES ('Скуднева', 'skudneva@university.ru', '+7 (999) 666-66-66');
