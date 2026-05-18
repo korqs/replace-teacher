@@ -5,6 +5,13 @@ require('dotenv').config();
 
 const { pool, testConnection } = require('./init_db');
 const Auth = require('./auth');
+const { isEmailEnabled } = require('./services/mail');
+const {
+    notifyInBackground,
+    notifyNewReplacementRequest,
+    notifyRequestResponded,
+    notifyRequestCancelled
+} = require('./services/request-emails');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -181,93 +188,189 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Получение расписания преподавателя
+function formatDateFromDb(value) {
+    if (typeof value === 'string') return value.slice(0, 10);
+    if (value instanceof Date) {
+        const y = value.getUTCFullYear();
+        const m = String(value.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(value.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+    return String(value).slice(0, 10);
+}
+
+const SCHEDULE_LESSON_QUERY = `
+    SELECT 
+        t.id,
+        t.subject,
+        t.classes,
+        t.dinner,
+        t.team,
+        t.date,
+        EXTRACT(DOW FROM t.date) as day_of_week,
+        t.week_num,
+        t.num_den,
+        t.is_replacement,
+        CASE t.num_den
+            WHEN 'num' THEN 'числитель'
+            WHEN 'den' THEN 'знаменатель'
+        END as num_den_text,
+        (
+            SELECT r.replacing_teacher
+            FROM replacement_requests r
+            WHERE r.teacher_name = t.teacher
+              AND r.request_date = t.date
+              AND r.classes = t.classes
+              AND r.subject = t.subject
+              AND r.status = 'confirmed'
+            LIMIT 1
+        ) AS replaced_by,
+        (
+            SELECT r.teacher_name
+            FROM replacement_requests r
+            WHERE r.replacing_teacher = t.teacher
+              AND r.request_date = t.date
+              AND r.classes = t.classes
+              AND r.subject = t.subject
+              AND r.status = 'confirmed'
+            LIMIT 1
+        ) AS covers_for
+    FROM timetable t
+    WHERE t.teacher = $1
+`;
+
+async function fetchTeacherSchedule(teacherName, { date, from, to } = {}) {
+    const params = [teacherName];
+    let dateClause = '';
+
+    if (date) {
+        params.push(date);
+        dateClause = ' AND t.date = $2';
+    } else if (from && to) {
+        params.push(from, to);
+        dateClause = ' AND t.date >= $2 AND t.date <= $3';
+    } else {
+        throw new Error('Укажите date или диапазон from/to');
+    }
+
+    const result = await pool.query(
+        `${SCHEDULE_LESSON_QUERY}${dateClause} ORDER BY t.date, t.classes`,
+        params
+    );
+
+    return result.rows.map((lesson) => ({
+        ...lesson,
+        date: formatDateFromDb(lesson.date),
+        can_request_replacement: !lesson.is_replacement
+    }));
+}
+
+// Получение расписания преподавателя на один день
 app.get('/api/schedule', Auth.authenticateToken, async (req, res) => {
     try {
-        console.log('🎯 /api/schedule запрос получен от:', req.user.email);
-        
         const { date } = req.query;
-        const userEmail = req.user.email;
         const teacherName = req.user.teacher_name;
-        
-        console.log('👤 Данные пользователя:', {
-            email: req.user.email,
-            teacher_name: teacherName,
-            role: req.user.role
-        });
-        
+
         if (!teacherName) {
             return res.status(400).json({
                 success: false,
                 message: 'Пользователь не связан с преподавателем'
             });
         }
-        
-        console.log('👨‍🏫 Преподаватель:', teacherName);
-        
-        // Используем дату из запроса или первую доступную
+
         let queryDate = date;
         if (!queryDate) {
-            // Если дата не указана, ищем первую доступную дату для этого преподавателя
             const firstDateResult = await pool.query(
                 `SELECT MIN(date) as first_date FROM timetable WHERE teacher = $1`,
                 [teacherName]
             );
-            queryDate = firstDateResult.rows[0]?.first_date || '2025-12-15';
+            queryDate = formatDateFromDb(firstDateResult.rows[0]?.first_date) || null;
         }
-        
-        console.log('📅 Ищем расписание на дату:', queryDate);
-        
-        // Ищем ТОЛЬКО НЕЗАМЕНЕННЫЕ занятия (is_replacement = false)
-        // Или занятия где этот преподаватель заменяет кого-то (включаем замены)
-        const scheduleData = await pool.query(
-            `SELECT 
-                t.id,
-                t.subject,
-                t.classes,
-                t.dinner,
-                t.team,
-                t.date,
-                EXTRACT(DOW FROM t.date) as day_of_week,
-                t.week_num,
-                t.num_den,
-                t.is_replacement,
-                CASE t.num_den
-                    WHEN 'num' THEN 'числитель'
-                    WHEN 'den' THEN 'знаменатель'
-                END as num_den_text
-            FROM timetable t
-            WHERE t.teacher = $1 
-            AND t.date = $2
-            AND (
-                t.is_replacement = false 
-                OR 
-                (t.is_replacement = true AND t.teacher = $1)
-            )
-            ORDER BY t.classes`,
-            [teacherName, queryDate]
-        );
-        
-        console.log('📊 Найдено занятий:', scheduleData.rows.length);
-        
-        // Добавляем флаг для замены (можно заменить только незамененные занятия)
-        const scheduleWithFlags = scheduleData.rows.map(lesson => ({
-            ...lesson,
-            can_request_replacement: !lesson.is_replacement // Можно заменить если не замена
-        }));
-        
+
+        const schedule = await fetchTeacherSchedule(teacherName, { date: queryDate });
+
         res.json({
             success: true,
             teacher: teacherName,
             date: queryDate,
-            schedule: scheduleWithFlags
+            schedule
         });
-        
     } catch (error) {
-        console.error('💥 Ошибка в /api/schedule:');
-        console.error('💥 Сообщение:', error.message);
-        console.error('💥 Stack trace:', error.stack);
-        
+        console.error('💥 Ошибка в /api/schedule:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Внутренняя ошибка сервера: ' + error.message
+        });
+    }
+});
+
+// Расписание на неделю (пн–сб): ?start=YYYY-MM-DD — понедельник недели
+app.get('/api/schedule/week', Auth.authenticateToken, async (req, res) => {
+    try {
+        const { start } = req.query;
+        const teacherName = req.user.teacher_name;
+
+        if (!teacherName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Пользователь не связан с преподавателем'
+            });
+        }
+
+        if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Параметр start обязателен (формат YYYY-MM-DD, понедельник недели)'
+            });
+        }
+
+        const startDate = new Date(`${start}T12:00:00`);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 5);
+
+        const endStr = [
+            endDate.getFullYear(),
+            String(endDate.getMonth() + 1).padStart(2, '0'),
+            String(endDate.getDate()).padStart(2, '0')
+        ].join('-');
+        const lessons = await fetchTeacherSchedule(teacherName, { from: start, to: endStr });
+
+        const lessonsByDate = {};
+        for (const lesson of lessons) {
+            if (!lessonsByDate[lesson.date]) lessonsByDate[lesson.date] = [];
+            lessonsByDate[lesson.date].push(lesson);
+        }
+
+        const dayNames = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+        const days = [];
+
+        for (let i = 0; i < 6; i++) {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + i);
+            const dateStr = [
+                d.getFullYear(),
+                String(d.getMonth() + 1).padStart(2, '0'),
+                String(d.getDate()).padStart(2, '0')
+            ].join('-');
+            const dow = d.getDay();
+
+            days.push({
+                date: dateStr,
+                day_of_week: dow,
+                day_name: dayNames[dow],
+                schedule: lessonsByDate[dateStr] || []
+            });
+        }
+
+        res.json({
+            success: true,
+            teacher: teacherName,
+            start,
+            end: endStr,
+            days
+        });
+    } catch (error) {
+        console.error('💥 Ошибка в /api/schedule/week:', error.message);
         res.status(500).json({
             success: false,
             message: 'Внутренняя ошибка сервера: ' + error.message
@@ -368,12 +471,24 @@ app.get('/api/schedule/available-dates', Auth.authenticateToken, async (req, res
 
         console.log('📅 Найдено дат для', teacherName, ':', datesRes.rows.length);
         
-        const dates = datesRes.rows.map(r => r.date);
+        const dates = datesRes.rows
+            .map((r) => {
+                const d = r.date;
+                if (typeof d === 'string') return d.slice(0, 10);
+                if (d instanceof Date) {
+                    const y = d.getUTCFullYear();
+                    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(d.getUTCDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                }
+                return String(d).slice(0, 10);
+            })
+            .filter(Boolean);
         console.log('📅 Даты:', dates);
 
         res.json({
             success: true,
-            dates: dates
+            dates
         });
     } catch (error) {
         console.error('❌ Ошибка /api/schedule/available-dates:', error);
@@ -855,24 +970,18 @@ app.put('/api/requests/:id/respond', Auth.authenticateToken, async (req, res) =>
                 );
                 
                 if (originalLesson.rows.length > 0) {
-                    // Помечаем как замененное (можно либо удалить, либо пометить флагом)
-                    // Вариант А: Помечаем флагом (сохраняем в базе для истории)
+                    // Помечаем как заменённое; имя преподавателя не меняем (связь с teachers)
                     await client.query(
                         `UPDATE timetable 
-                         SET is_replacement = true,
-                             teacher = teacher || ' → ' || $1
-                         WHERE id = $2`,
-                        [teacherName, originalLesson.rows[0].id]
+                         SET is_replacement = true
+                         WHERE id = $1`,
+                        [originalLesson.rows[0].id]
                     );
                     
-                    console.log(`📌 Занятие ${originalLesson.rows[0].id} помечено как замененное`);
-                    
-                    // Вариант Б: Удаляем оригинальное занятие (более чисто)
-                    // await client.query(
-                    //     `DELETE FROM timetable WHERE id = $1`,
-                    //     [originalLesson.rows[0].id]
-                    // );
-                    // console.log(`🗑️ Занятие ${originalLesson.rows[0].id} удалено у ${request.teacher_name}`);
+                    console.log(
+                        `📌 Занятие ${originalLesson.rows[0].id} помечено как заменённое ` +
+                        `(${request.teacher_name} → ${teacherName})`
+                    );
                 } else {
                     console.log(`⚠️ Оригинальное занятие не найдено у ${request.teacher_name}`);
                 }
@@ -886,6 +995,10 @@ app.put('/api/requests/:id/respond', Auth.authenticateToken, async (req, res) =>
                 success: true,
                 message: `Вы ${action === 'accept' ? 'приняли' : 'отклонили'} заявку на замену`
             });
+
+            notifyInBackground(() =>
+                notifyRequestResponded(pool, request, action)
+            );
             
         } catch (error) {
             await client.query('ROLLBACK');
@@ -1089,13 +1202,32 @@ app.post('/api/requests', Auth.authenticateToken, async (req, res) => {
             ]
         );
         
-        console.log('✅ Заявка создана, ID:', result.rows[0].id);
+        const requestId = result.rows[0].id;
+        console.log('✅ Заявка создана, ID:', requestId);
+
+        const createdRequest = {
+            id: requestId,
+            teacher_name: teacherName,
+            request_date,
+            week_num,
+            num_den,
+            classes,
+            subject,
+            team,
+            replacing_teacher
+        };
         
         res.json({
             success: true,
             message: 'Заявка успешно создана',
-            request_id: result.rows[0].id
+            request_id: requestId
         });
+
+        if (replacing_teacher) {
+            notifyInBackground(() =>
+                notifyNewReplacementRequest(pool, createdRequest)
+            );
+        }
         
     } catch (error) {
         console.error('❌ Ошибка при создании заявки:', error);
@@ -1117,7 +1249,8 @@ app.put('/api/requests/:id/cancel', Auth.authenticateToken, async (req, res) => 
         
         // Проверяем, существует ли заявка
         const checkRequest = await pool.query(
-            `SELECT teacher_name, status FROM replacement_requests WHERE id = $1`,
+            `SELECT teacher_name, replacing_teacher, request_date, classes, subject, team, status
+             FROM replacement_requests WHERE id = $1`,
             [requestId]
         );
         
@@ -1165,11 +1298,17 @@ app.put('/api/requests/:id/cancel', Auth.authenticateToken, async (req, res) => 
         }
         
         console.log('✅ Заявка отменена');
+
+        const cancelledRequest = checkRequest.rows[0];
         
         res.json({
             success: true,
             message: 'Заявка успешно отменена'
         });
+
+        notifyInBackground(() =>
+            notifyRequestCancelled(pool, cancelledRequest)
+        );
         
     } catch (error) {
         console.error('❌ Ошибка при отмене заявки:', error);
@@ -1230,7 +1369,8 @@ app.get('/api/admin/replacements-history', Auth.authenticateToken, Auth.requireA
                     WHERE t.date = r.request_date
                       AND t.classes = r.classes
                       AND t.subject = r.subject
-                      AND t.teacher LIKE r.teacher_name || ' → %'
+                      AND t.teacher = r.teacher_name
+                      AND t.is_replacement = true
                     LIMIT 1
                 ) AS timetable_teacher
             FROM replacement_requests r
@@ -1367,6 +1507,22 @@ app.get('*', (req, res) => {
 // ЗАПУСК СЕРВЕРА
 // ================================================
 
+/** Восстановление имён после старой логики teacher || ' → ' || replacer */
+async function repairCorruptedTimetableTeachers() {
+    try {
+        const result = await pool.query(`
+            UPDATE timetable
+            SET teacher = TRIM(SPLIT_PART(teacher, ' → ', 1))
+            WHERE teacher LIKE '% → %'
+        `);
+        if (result.rowCount > 0) {
+            console.log(`🔧 Восстановлено имён в timetable: ${result.rowCount} записей`);
+        }
+    } catch (error) {
+        console.warn('⚠️ Не удалось восстановить поле teacher в timetable:', error.message);
+    }
+}
+
 const startServer = async () => {
     try {
         console.log('🔧 Запуск сервера замены преподавателей...');
@@ -1379,6 +1535,13 @@ const startServer = async () => {
             console.error('❌ Ошибка подключения к базе данных!');
         } else {
             console.log('✅ База данных подключена успешно!');
+            await repairCorruptedTimetableTeachers();
+        }
+
+        if (isEmailEnabled()) {
+            console.log('📧 Email-уведомления: включены (SMTP)');
+        } else {
+            console.log('📧 Email-уведомления: выключены (EMAIL_ENABLED=false)');
         }
         
         // Запуск сервера
