@@ -17,7 +17,18 @@ const config = {
 
 console.log('📧 Конфиг:', { host: config.host, port: config.port, user: config.auth.user, passSet: !!config.auth.pass });
 
-const transporter = nodemailer.createTransport(config);
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    secure: process.env.SMTP_PORT == 465,
+    auth: { 
+        user: process.env.SMTP_USER, 
+        pass: process.env.SMTP_PASS 
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+});
 
 async function sendMail({ to, subject, html, text }) {
     console.log(`📧 [sendMail] Вызвана с to: ${to}`);
@@ -54,14 +65,5 @@ function isEmailEnabled() {
     return enabled;
 }
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: process.env.SMTP_PORT == 465,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    connectionTimeout: 10000,  // 10 секунд
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-});
 
 module.exports = { sendMail, isEmailEnabled };
