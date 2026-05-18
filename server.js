@@ -11,34 +11,32 @@ const Auth = require('./auth');
 // и закомментируйте эти заглушки
 
 // ЗАГЛУШКИ (работают без папки services)
-function isEmailEnabled() {
-    return process.env.EMAIL_ENABLED === 'true' && process.env.SMTP_HOST;
-}
+// function isEmailEnabled() {
+//     return process.env.EMAIL_ENABLED === 'true' && process.env.SMTP_HOST;
+// }
 
-async function notifyInBackground(callback) {
-    // Асинхронно выполняем без ожидания
-    setImmediate(() => {
-        callback().catch(err => console.error('❌ Ошибка в email уведомлении:', err.message));
-    });
-}
+// async function notifyInBackground(callback) {
+//     // Асинхронно выполняем без ожидания
+//     setImmediate(() => {
+//         callback().catch(err => console.error('❌ Ошибка в email уведомлении:', err.message));
+//     });
+// }
 
-async function notifyNewReplacementRequest(pool, request) {
-    console.log(`📧 [ЗАГЛУШКА] Уведомление о новой заявке ID:${request.id}`);
-    return true;
-}
+// async function notifyNewReplacementRequest(pool, request) {
+//     console.log(`📧 [ЗАГЛУШКА] Уведомление о новой заявке ID:${request.id}`);
+//     return true;
+// }
 
-async function notifyRequestResponded(pool, request, action) {
-    console.log(`📧 [ЗАГЛУШКА] Уведомление об ответе на заявку ID:${request.id}, действие:${action}`);
-    return true;
-}
+// async function notifyRequestResponded(pool, request, action) {
+//     console.log(`📧 [ЗАГЛУШКА] Уведомление об ответе на заявку ID:${request.id}, действие:${action}`);
+//     return true;
+// }
 
-async function notifyRequestCancelled(pool, request) {
-    console.log(`📧 [ЗАГЛУШКА] Уведомление об отмене заявки ID:${request.id}`);
-    return true;
-}
+// async function notifyRequestCancelled(pool, request) {
+//     console.log(`📧 [ЗАГЛУШКА] Уведомление об отмене заявки ID:${request.id}`);
+//     return true;
+// }
 
-// КОГДА ЗАЛЬЕТЕ ФАЙЛЫ В КОРЕНЬ - РАСКОММЕНТИРУЙТЕ ЭТОТ БЛОК И ЗАКОММЕНТИРУЙТЕ ЗАГЛУШКИ ВЫШЕ:
-/*
 const { isEmailEnabled } = require('./mail');
 const {
     notifyInBackground,
@@ -46,7 +44,7 @@ const {
     notifyRequestResponded,
     notifyRequestCancelled
 } = require('./request-emails');
-*/
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
