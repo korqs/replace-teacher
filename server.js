@@ -27,7 +27,6 @@ function normalizeDateRange(from, to) {
     return { from, to };
 }
 
-// Фильтры для админских списков: ?from= &to= &status= &teacher=
 function buildAdminListFilters(query, tableAlias = 'r') {
     const { status, teacher } = query;
     const { from, to } = normalizeDateRange(query.from, query.to);
@@ -63,9 +62,7 @@ function buildAdminListFilters(query, tableAlias = 'r') {
     return { conditions, params };
 }
 
-// ================================================
 // КОНФИГУРАЦИЯ
-// ================================================
 
 // Middleware
 app.use(cors({
@@ -82,12 +79,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 
-// ================================================
 // API МАРШРУТЫ
-// ================================================
 
 // Проверка здоровья сервера
-
 app.get('/api/test', (req, res) => {
     res.json({ message: 'Test route works!' });
 });
@@ -309,7 +303,6 @@ app.get('/api/schedule', Auth.authenticateToken, async (req, res) => {
     }
 });
 
-// Расписание на неделю (пн–сб): ?start=YYYY-MM-DD — понедельник недели
 app.get('/api/schedule/week', Auth.authenticateToken, async (req, res) => {
     try {
         const { start } = req.query;
@@ -504,11 +497,8 @@ app.get('/api/schedule/available-dates', Auth.authenticateToken, async (req, res
     }
 });
 
-// ================================================
 // ДОСТУПНЫЕ ПРЕПОДАВАТЕЛИ ДЛЯ ЗАМЕНЫ
-// ================================================
 
-// Получение списка доступных преподавателей (с коэффициентом)
 // Получение списка доступных преподавателей (с коэффициентом)
 app.get('/api/teachers/available', Auth.authenticateToken, async (req, res) => {
     try {
@@ -545,8 +535,7 @@ app.get('/api/teachers/available', Auth.authenticateToken, async (req, res) => {
         const busyTeacherNames = busyTeachers.rows.map(row => row.teacher);
         console.log('🚫 Занятые преподаватели:', busyTeacherNames);
         
-        // По умолчанию используем seminar, так как большинство занятий семинары
-        // Можно было бы добавить lesson_type в таблицу timetable для точности
+        
         const lessonType = 'seminar';
         
         // Получаем всех преподавателей с их коэффициентами по предмету
@@ -612,7 +601,7 @@ app.get('/api/teachers/available', Auth.authenticateToken, async (req, res) => {
                 else if (experienceCount > 5) experienceBonus = 0.1;
                 else if (experienceCount > 0) experienceBonus = 0.05;
                 
-                // Фактор пола (статистический: женщины чаще соглашаются)
+                // Фактор пола (женщины чаще соглашаются)
                 let genderBonus = 0;
                 if (teacher.name.endsWith('а') || teacher.name.endsWith('я')) {
                     genderBonus = 0.1;
@@ -733,15 +722,9 @@ app.get('/api/subjects/by-lesson', Auth.authenticateToken, async (req, res) => {
     }
 });
 
-// ================================================
 // ЗАЯВКИ НА ЗАМЕНУ (Мои заявки / Новая заявка)
-// ================================================
-// ================================================
-// ЗАЯВКИ НА ЗАМЕНУ (Мои заявки / Новая заявка)
-// ================================================
 
 // Мои заявки
-// Мои заявки - теперь включает заявки где меня выбрали для замены
 app.get('/api/requests/my', Auth.authenticateToken, async (req, res) => {
     try {
         const teacherName = req.user.teacher_name;
@@ -895,7 +878,6 @@ app.put('/api/requests/:id/respond', Auth.authenticateToken, async (req, res) =>
             });
         }
         
-        // Начинаем транзакцию
         const client = await pool.connect();
         
         try {
@@ -953,7 +935,6 @@ app.put('/api/requests/:id/respond', Auth.authenticateToken, async (req, res) =>
                 }
                 
                 // 2. Помечаем оригинальное занятие как замененное у оригинального преподавателя
-                // Находим оригинальное занятие
                 const originalLesson = await client.query(
                     `SELECT id FROM timetable 
                      WHERE teacher = $1 
@@ -970,7 +951,7 @@ app.put('/api/requests/:id/respond', Auth.authenticateToken, async (req, res) =>
                 );
                 
                 if (originalLesson.rows.length > 0) {
-                    // Помечаем как заменённое; имя преподавателя не меняем (связь с teachers)
+                    // Помечаем как заменённое; имя преподавателя не меняем
                     await client.query(
                         `UPDATE timetable 
                          SET is_replacement = true
@@ -1114,9 +1095,7 @@ app.post('/api/requests', Auth.authenticateToken, async (req, res) => {
             });
         }
 
-        // ============================================
         // ПРОВЕРКА: существует ли предмет в расписании
-        // ============================================
         try {
             const subjectCheck = await pool.query(
                 `SELECT 1 FROM timetable WHERE subject = $1 LIMIT 1`,
@@ -1323,11 +1302,9 @@ app.put('/api/requests/:id/cancel', Auth.authenticateToken, async (req, res) => 
     }
 });
 
-// ================================================
 // АДМИНИСТРАТОР
-// ================================================
 
-// История замен: одна строка = одна подтверждённая заявка (без дублей из timetable)
+// История замен
 app.get('/api/admin/replacements-history', Auth.authenticateToken, Auth.requireAdmin, async (req, res) => {
     try {
         const filters = buildAdminListFilters(req.query);
@@ -1404,7 +1381,7 @@ app.get('/api/admin/replacements-history', Auth.authenticateToken, Auth.requireA
     }
 });
 
-// Все заявки с фильтрами (алиас для админ-панели)
+// Все заявки с фильтрами 
 app.get('/api/admin/requests', Auth.authenticateToken, Auth.requireAdmin, async (req, res) => {
     try {
         const filters = buildAdminListFilters(req.query);
@@ -1461,9 +1438,7 @@ app.get('/api/admin/requests', Auth.authenticateToken, Auth.requireAdmin, async 
     }
 });
 
-// ================================================
 // ПРОФИЛЬ
-// ================================================
 
 app.get('/api/profile', Auth.authenticateToken, async (req, res) => {
     try {
@@ -1488,9 +1463,7 @@ app.use('/api/*', (req, res) => {
     });
 });
 
-// ================================================
 // ФРОНТЕНД МАРШРУТЫ
-// ================================================
 
 // Главная страница (вход)
 app.get('/', (req, res) => {
@@ -1507,9 +1480,7 @@ app.get('*', (req, res) => {
     res.status(404).send('Страница не найдена');
 });
 
-// ================================================
 // ЗАПУСК СЕРВЕРА
-// ================================================
 
 /** Восстановление имён после старой логики teacher || ' → ' || replacer */
 async function repairCorruptedTimetableTeachers() {
