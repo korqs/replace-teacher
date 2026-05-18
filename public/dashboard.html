@@ -774,9 +774,13 @@
             <section id="schedule-section" class="content-section active teacher-only">
                 <div class="section-header">
                     <h3><i class="fas fa-calendar-alt"></i> Расписание</h3>
-                    <div class="section-controls">
-                        <div class="date-navigation">
-                            <button class="date-btn" id="prevDateBtn">
+                    <div class="section-controls schedule-section-controls">
+                        <div class="view-toggle" id="scheduleViewToggle">
+                            <button type="button" class="view-btn active" data-view="day">День</button>
+                            <button type="button" class="view-btn" data-view="week">Неделя</button>
+                        </div>
+                        <div class="date-navigation" id="dayNavControls">
+                            <button type="button" class="date-btn" id="prevDateBtn">
                                 <i class="fas fa-chevron-left"></i>
                             </button>
                             <div class="current-date" id="currentDate">
@@ -785,7 +789,19 @@
                             <button class="date-btn" id="nextDateBtn">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
-                            <button class="date-btn" id="todayBtn">
+                            <button type="button" class="date-btn" id="todayBtn">
+                                <i class="fas fa-calendar-day"></i> Сегодня
+                            </button>
+                        </div>
+                        <div class="date-navigation" id="weekNavControls" style="display: none;">
+                            <button type="button" class="date-btn" id="prevWeekBtn" title="Предыдущая неделя">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <div class="current-date current-week-range" id="currentWeekRange"></div>
+                            <button type="button" class="date-btn" id="nextWeekBtn" title="Следующая неделя">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                            <button type="button" class="date-btn" id="todayWeekBtn">
                                 <i class="fas fa-calendar-day"></i> Сегодня
                             </button>
                         </div>
@@ -795,6 +811,15 @@
                 <!-- Расписание на день -->
                 <div id="day-schedule" class="schedule-view">
                     <div class="schedule-container" id="dayScheduleContainer">
+                        <div class="loading-schedule">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Загрузка расписания...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="week-schedule" class="schedule-view" style="display: none;">
+                    <div id="weekScheduleContainer" class="week-schedule-container">
                         <div class="loading-schedule">
                             <i class="fas fa-spinner fa-spin"></i>
                             <p>Загрузка расписания...</p>
