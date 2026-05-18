@@ -1,17 +1,3 @@
-// public/dashboard.js
-// Проверка токена при загрузке dashboard
-// Проверка авторизации
-const urlParams = new URLSearchParams(window.location.search);
-const token = urlParams.get('token') || localStorage.getItem('token');
-
-if (!token) {
-    window.location.href = '/';
-} else {
-    localStorage.setItem('token', token);
-    // Убираем токен из URL
-    window.history.replaceState({}, document.title, '/dashboard');
-}
-
 class DashboardApp {
     constructor() {
         this.modules = {};
