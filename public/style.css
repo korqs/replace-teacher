@@ -644,18 +644,59 @@ body {
     transform: none;
 }
 
+.schedule-section-controls {
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.schedule-section-controls .view-toggle {
+    flex-shrink: 0;
+}
+
+.current-week-range {
+    min-width: 180px;
+}
+
 /* Недельное расписание */
 .week-schedule-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-    padding: 20px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    padding: 16px;
+}
+
+@media (max-width: 1100px) {
+    .week-schedule-container {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .week-schedule-container {
+        grid-template-columns: 1fr;
+    }
 }
 
 .day-column {
     background: #f8fafc;
     border-radius: 8px;
     padding: 15px;
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.2s;
+    border: 2px solid transparent;
+}
+
+.day-column:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.day-column.today {
+    border-color: #3498db;
+    background: #eff6ff;
+}
+
+.day-column.today .day-header {
+    border-bottom-color: #3498db;
 }
 
 .day-header {
@@ -699,6 +740,49 @@ body {
 .week-lesson .subject {
     color: #4a5568;
     font-size: 14px;
+}
+
+.week-lesson.replacement {
+    background: #fff8e1;
+    border-left: 3px solid #ffb300;
+}
+
+.week-lesson-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.week-lesson-meta {
+    font-size: 12px;
+    color: #718096;
+    margin-top: 4px;
+}
+
+.week-replace-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.week-replace-btn:hover {
+    background: #c0392b;
+}
+
+.week-day-empty {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    margin: 8px 0;
 }
 
 /* Пустые состояния */
